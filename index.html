@@ -1,65 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Extreme Weather Dashboard</title>
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet/dist/leaflet.css"
-/>
-<style>
-  body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
-  #map { height: 100%; width: 100%; }
-  .popup-dummy { color: orange; font-weight: bold; }
-  .popup-bmkg { color: red; font-weight: bold; }
-</style>
+  <meta charset="UTF-8">
+  <title>Extreme Weather Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100vw; }
+    .popup-bmkg { color: red; }
+    .popup-dummy { color: blue; }
+  </style>
 </head>
 <body>
-<div id="map"></div>
+  <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// URL Worker yang menyajikan KV
-const DATA_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/';
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const API_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/';
 
-// Format waktu jadi lebih mudah dibaca
-function formatTime(timeStr) {
-  if (!timeStr) return '-';
-  const d = new Date(timeStr);
-  return d.toLocaleString('id-ID', { hour12: false });
-}
+    // Inisialisasi map
+    const map = L.map('map').setView([-2.5, 118], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-// Inisialisasi peta
-const map = L.map('map').setView([-2.5, 118], 5);
+    // Fetch data dari Worker KV
+    async function loadWarnings() {
+      try {
+        const resp = await fetch(API_URL);
+        const data = await resp.json();
 
-// Tile layer
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+        data.forEach(markerData => {
+          const coords = markerData.coords;
+          const latest = markerData.latest_warning;
 
-// Ambil data dari KV
-fetch(DATA_URL)
-  .then(res => res.json())
-  .then(data => {
-    data.forEach(city => {
-      const coords = city.coords;
-      let popupContent = `<b>${city.city}</b><br>Region: ${city.region}<br>`;
+          const color = latest ? (latest.source === "BMKG" ? "red" : "blue") : "gray";
 
-      if (city.latest_warning) {
-        const src = city.latest_warning.source || 'BMKG';
-        const typeClass = src === 'DUMMY' ? 'popup-dummy' : 'popup-bmkg';
-        popupContent += `<span class="${typeClass}">Type: ${city.latest_warning.type} (${src})</span><br>`;
-        popupContent += `Time: ${formatTime(city.latest_warning.start_time)} - ${formatTime(city.latest_warning.end_time)}<br>`;
-        popupContent += `Description: ${city.latest_warning.description}`;
-      } else {
-        popupContent += 'No active warning';
+          const marker = L.circleMarker(coords, {
+            radius: 8,
+            fillColor: color,
+            color: "#000",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+          }).addTo(map);
+
+          const info = latest
+            ? `<strong>${markerData.city}</strong><br>
+               Region: ${markerData.region}<br>
+               Type: ${latest.type}<br>
+               Time: ${latest.start_time} - ${latest.end_time}<br>
+               Description: ${latest.description}<br>
+               <em>Source: ${latest.source}</em>`
+            : `<strong>${markerData.city}</strong><br>No current warning`;
+
+          marker.bindPopup(info);
+        });
+
+      } catch (err) {
+        console.error('Error fetching warnings:', err);
       }
+    }
 
-      L.marker(coords).addTo(map).bindPopup(popupContent);
-    });
-  })
-  .catch(err => console.error('Error loading data:', err));
-</script>
+    loadWarnings();
+
+    // Optional: refresh tiap 10 menit
+    setInterval(loadWarnings, 10 * 60 * 1000);
+  </script>
 </body>
 </html>
