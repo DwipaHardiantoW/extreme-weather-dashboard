@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Extreme Weather Dashboard</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <title>BMKG Extreme Weather Dashboard</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
+  />
   <style>
-    html, body { margin:0; padding:0; height:100%; }
-    #map { width:100%; height:100%; }
+    body, html { margin: 0; padding: 0; height: 100%; }
+    #map { width: 100%; height: 100%; }
+    .popup-content { font-size: 14px; line-height: 1.4; }
+    .popup-content b { display: inline-block; width: 80px; }
   </style>
 </head>
 <body>
@@ -14,69 +19,53 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Inisialisasi map
-    const map = L.map('map').setView([-2.5, 118], 5);
+    const map = L.map('map').setView([-2.5, 118], 5); // center Indonesia
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Warna marker berdasarkan tipe peringatan
-    function getMarkerColor(type) {
-      switch(type) {
-        case 'Banjir': return 'blue';
-        case 'Angin Kencang': return 'red';
-        default: return 'green';
-      }
-    }
+    const WORKER_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/'; // ganti sesuai Worker mu
 
-    // Format waktu supaya lebih readable
-    function formatTime(datetime) {
-      const d = new Date(datetime);
-      return d.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
-    }
-
-    // Load marker dari Worker
-    async function loadMarkers() {
+    async function loadWarnings() {
       try {
-        const resp = await fetch('https://extreme-weather-dashboard.bmkgupdate.workers.dev'); // ganti dengan URL Worker-mu
-        const data = await resp.json();
+        const res = await fetch(WORKER_URL);
+        const data = await res.json();
 
-        data.forEach(city => {
-          if (city.latest_warning) {
-            const color = getMarkerColor(city.latest_warning.type);
+        data.forEach(item => {
+          const { coords, city, region, latest_warning } = item;
+          if (!coords) return;
 
-            const marker = L.circleMarker(city.coords, {
-              radius: 8,
-              fillColor: color,
-              color: '#000',
-              weight: 1,
-              opacity: 1,
-              fillOpacity: 0.8
-            }).addTo(map);
+          const marker = L.marker(coords).addTo(map);
 
-            // Bind popup rapi
-            const popupContent = `
-              <div style="font-family: Arial, sans-serif; font-size: 14px;">
-                <strong>${city.city}</strong><br>
-                <b>Region:</b> ${city.region}<br>
-                <b>Type:</b> <span style="color:${color};">${city.latest_warning.type}</span><br>
-                <b>Time:</b> ${formatTime(city.latest_warning.start_time)} - ${formatTime(city.latest_warning.end_time)}<br>
-                <b>Description:</b> ${city.latest_warning.description}
-              </div>
-            `;
-            marker.bindPopup(popupContent);
+          let popupHtml = `<div class="popup-content">
+            <b>City:</b> ${city}<br>
+            <b>Region:</b> ${region}<br>`;
+
+          if (latest_warning) {
+            popupHtml += `
+            <b>Type:</b> ${latest_warning.type}<br>
+            <b>Time:</b> ${latest_warning.start_time} - ${latest_warning.end_time}<br>
+            <b>Description:</b> ${latest_warning.description}<br>`;
+          } else {
+            popupHtml += `<b>Status:</b> No current warning`;
           }
+
+          popupHtml += '</div>';
+
+          marker.bindPopup(popupHtml);
         });
 
       } catch (err) {
-        console.error('Error loading markers:', err);
-        alert('Failed to load weather warnings. Check console.');
+        console.error('Failed to load warnings:', err);
       }
     }
 
-    loadMarkers();
+    loadWarnings();
+
+    // Optional: refresh every 10 minutes
+    setInterval(loadWarnings, 10 * 60 * 1000);
   </script>
 </body>
 </html>
