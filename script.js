@@ -1,4 +1,4 @@
-const API_URL = "https://YOUR_WORKER.cloudflare.workers.dev"; // GANTI
+const API_URL = "https://extreme-weather-dashboard.bmkgupdate.cloudflare.workers.dev"; // GANTI
 
 const severityColors = {
   extreme: "red",
@@ -107,3 +107,4 @@ function regionToCoords(region) {
 // initial load + auto refresh
 loadWarnings();
 setInterval(loadWarnings, 10 * 60 * 1000); // refresh 10 menit
+
