@@ -3,67 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extreme Weather Dashboard</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <title>Extreme Weather Dashboard Indonesia</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-sA+4PDEiUMH17b9t5wI0T0SbQX6HZV2ChP2PwnM6mZo="
+    crossorigin=""
+  />
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; }
-    #map { height: 100%; width: 100%; }
-    .popup-content { font-family: sans-serif; font-size: 14px; }
-    .popup-content b { display: block; margin-bottom: 3px; }
+    body, html { margin:0; padding:0; height:100%; }
+    #map { width:100%; height:100%; }
+    .legend { background:white; padding:10px; line-height:1.5em; }
+    .legend span { display:inline-block; width:12px; height:12px; margin-right:5px; }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-oBqDVmMz9dZH7t9dM3QVftz9cPbsP6Tb5P2n5bV0CPM="
+  crossorigin=""
+></script>
+<script>
+const WORKER_ENDPOINT = "https://extreme-weather-dashboard.bmkgupdate.workers.dev/";
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([-2.5, 118], 5); // Indonesia center
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+const map = L.map("map").setView([-2.5, 118], 5);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "© OpenStreetMap"
+}).addTo(map);
 
-    // Ambil data dari Worker KV
-    fetch('https://extreme-weather-dashboard.bmkgupdate.workers.dev/')
-      .then(res => res.json())
-      .then(data => {
-        data.forEach(place => {
-          const warning = place.latest_warning;
+const colorForWarning = w => {
+  if(!w) return "blue"; // no warning
+  return w.isDummy ? "orange" : "red";
+}
 
-          // Tentukan warna marker
-          let color = 'gray';
-          if (warning) {
-            color = warning.source === "BMKG" ? 'red' :
-                    warning.source === "DUMMY" ? 'blue' : 'gray';
-          }
+const fetchData = async () => {
+  try {
+    const resp = await fetch(WORKER_ENDPOINT);
+    const data = await resp.json();
 
-          const marker = L.circleMarker(place.coords, {
-            radius: 8,
-            fillColor: color,
-            color: '#000',
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.8
-          }).addTo(map);
+    data.forEach(d => {
+      const w = d.latest_warning;
+      const color = colorForWarning(w);
+      const marker = L.circleMarker([d.coords[0], d.coords[1]], {
+        radius: 8,
+        fillColor: color,
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+      }).addTo(map);
 
-          let popupContent = `<div class="popup-content">
-            <b>${place.city}, ${place.region}</b>`;
-
-          if (warning) {
-            popupContent += `
-              <b>Source:</b> ${warning.source}<br/>
-              <b>Type:</b> ${warning.type}<br/>
-              <b>Start:</b> ${warning.start_time}<br/>
-              <b>End:</b> ${warning.end_time}<br/>
-              <b>Description:</b> ${warning.description}`;
-          } else {
-            popupContent += `<i>No current warning</i>`;
-          }
-
-          popupContent += `</div>`;
-          marker.bindPopup(popupContent);
-        });
-      })
-      .catch(err => console.error('Fetch error:', err));
-  </script>
-</body>
-</html>
+      let popupText = `<strong>${
