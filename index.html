@@ -1,71 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>BMKG Extreme Weather Dashboard</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-  />
-  <style>
-    body, html { margin: 0; padding: 0; height: 100%; }
-    #map { width: 100%; height: 100%; }
-    .popup-content { font-size: 14px; line-height: 1.4; }
-    .popup-content b { display: inline-block; width: 80px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extreme Weather Dashboard</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet/dist/leaflet.css"
+/>
+<style>
+  body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
+  #map { height: 100%; width: 100%; }
+  .popup-dummy { color: orange; font-weight: bold; }
+  .popup-bmkg { color: red; font-weight: bold; }
+</style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([-2.5, 118], 5); // center Indonesia
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// URL Worker yang menyajikan KV
+const DATA_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/';
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+// Format waktu jadi lebih mudah dibaca
+function formatTime(timeStr) {
+  if (!timeStr) return '-';
+  const d = new Date(timeStr);
+  return d.toLocaleString('id-ID', { hour12: false });
+}
 
-    const WORKER_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/'; // ganti sesuai Worker mu
+// Inisialisasi peta
+const map = L.map('map').setView([-2.5, 118], 5);
 
-    async function loadWarnings() {
-      try {
-        const res = await fetch(WORKER_URL);
-        const data = await res.json();
+// Tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-        data.forEach(item => {
-          const { coords, city, region, latest_warning } = item;
-          if (!coords) return;
+// Ambil data dari KV
+fetch(DATA_URL)
+  .then(res => res.json())
+  .then(data => {
+    data.forEach(city => {
+      const coords = city.coords;
+      let popupContent = `<b>${city.city}</b><br>Region: ${city.region}<br>`;
 
-          const marker = L.marker(coords).addTo(map);
-
-          let popupHtml = `<div class="popup-content">
-            <b>City:</b> ${city}<br>
-            <b>Region:</b> ${region}<br>`;
-
-          if (latest_warning) {
-            popupHtml += `
-            <b>Type:</b> ${latest_warning.type}<br>
-            <b>Time:</b> ${latest_warning.start_time} - ${latest_warning.end_time}<br>
-            <b>Description:</b> ${latest_warning.description}<br>`;
-          } else {
-            popupHtml += `<b>Status:</b> No current warning`;
-          }
-
-          popupHtml += '</div>';
-
-          marker.bindPopup(popupHtml);
-        });
-
-      } catch (err) {
-        console.error('Failed to load warnings:', err);
+      if (city.latest_warning) {
+        const src = city.latest_warning.source || 'BMKG';
+        const typeClass = src === 'DUMMY' ? 'popup-dummy' : 'popup-bmkg';
+        popupContent += `<span class="${typeClass}">Type: ${city.latest_warning.type} (${src})</span><br>`;
+        popupContent += `Time: ${formatTime(city.latest_warning.start_time)} - ${formatTime(city.latest_warning.end_time)}<br>`;
+        popupContent += `Description: ${city.latest_warning.description}`;
+      } else {
+        popupContent += 'No active warning';
       }
-    }
 
-    loadWarnings();
-
-    // Optional: refresh every 10 minutes
-    setInterval(loadWarnings, 10 * 60 * 1000);
-  </script>
+      L.marker(coords).addTo(map).bindPopup(popupContent);
+    });
+  })
+  .catch(err => console.error('Error loading data:', err));
+</script>
 </body>
 </html>
