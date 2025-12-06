@@ -1,58 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extreme Weather Dashboard Indonesia</title>
+  <meta charset="UTF-8">
+  <title>Extreme Weather Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link
     rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-sA+4PDEiUMH17b9t5wI0T0SbQX6HZV2ChP2PwnM6mZo="
-    crossorigin=""
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
   />
   <style>
-    body, html { margin:0; padding:0; height:100%; }
-    #map { width:100%; height:100%; }
-    .legend { background:white; padding:10px; line-height:1.5em; }
-    .legend span { display:inline-block; width:12px; height:12px; margin-right:5px; }
+    #map { height: 100vh; width: 100vw; }
+    .legend {
+      background: white;
+      padding: 6px 10px;
+      line-height: 18px;
+      color: #333;
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
-<div id="map"></div>
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-oBqDVmMz9dZH7t9dM3QVftz9cPbsP6Tb5P2n5bV0CPM="
-  crossorigin=""
-></script>
-<script>
-const WORKER_ENDPOINT = "https://extreme-weather-dashboard.bmkgupdate.workers.dev/";
+  <div id="map"></div>
 
-const map = L.map("map").setView([-2.5, 118], 5);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "© OpenStreetMap"
-}).addTo(map);
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([-2.5, 118], 5);
 
-const colorForWarning = w => {
-  if(!w) return "blue"; // no warning
-  return w.isDummy ? "orange" : "red";
-}
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-const fetchData = async () => {
-  try {
-    const resp = await fetch(WORKER_ENDPOINT);
-    const data = await resp.json();
+    // URL Worker KV
+    const DATA_URL = 'https://extreme-weather-dashboard.bmkgupdate.workers.dev/';
 
-    data.forEach(d => {
-      const w = d.latest_warning;
-      const color = colorForWarning(w);
-      const marker = L.circleMarker([d.coords[0], d.coords[1]], {
+    function getMarkerColor(warning) {
+      if (!warning) return 'blue'; // no current warning
+      if (warning.isDummy) return 'orange'; // dummy warning
+      return 'red'; // BMKG warning
+    }
+
+    function createMarker(cityData) {
+      const warning = cityData.latest_warning;
+      const color = getMarkerColor(warning);
+
+      const marker = L.circleMarker(cityData.coords, {
         radius: 8,
+        color: color,
         fillColor: color,
-        color: "#000",
-        weight: 1,
-        opacity: 1,
-        fillOpacity: 0.8
+        fillOpacity: 0.8,
+        weight: 1
       }).addTo(map);
 
-      let popupText = `<strong>${
+      let tooltipText = `<b>${cityData.city}</b><br>`;
+      if (!warning) tooltipText += 'No current warning';
+      else {
+        tooltipText += `Type: ${warning.type}<br>`;
+        tooltipText += `Description: ${warning.description}<br>`;
+        tooltipText += `Start: ${warning.start_time}<br>`;
+        tooltipText += `End: ${warning.end_time}<br>`;
+        tooltipText += `Source: ${warning.source}`;
+      }
+      marker.bindPopup(tooltipText);
+    }
+
+    async function loadData() {
+      try {
+        const resp = await fetch(DATA_URL);
+        const data = await resp.json();
+        data.forEach(createMarker);
+      } catch (err) {
+        console.error('Failed to load data', err);
+      }
+    }
+
+    loadData();
+
+    // Legend
+    const legend = L.control({position: 'bottomright'});
+    legend.onAdd = function () {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <i style="background:red"></i> BMKG warning<br>
+        <i style="background:orange"></i> Dummy warning<br>
+        <i style="background:blue"></i> No current warning
+      `;
+      return div;
+    };
+    legend.addTo(map);
+  </script>
+</body>
+</html>
