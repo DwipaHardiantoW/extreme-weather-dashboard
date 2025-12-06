@@ -7,10 +7,6 @@
   <style>
     html, body { margin:0; padding:0; height:100%; }
     #map { width:100%; height:100%; }
-    /* Popup styling */
-    .popup-content { font-family: Arial, sans-serif; font-size: 14px; }
-    .popup-content h4 { margin: 0 0 5px 0; }
-    .popup-content p { margin: 0; }
   </style>
 </head>
 <body>
@@ -18,7 +14,7 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Initialize map
+    // Inisialisasi map
     const map = L.map('map').setView([-2.5, 118], 5);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -26,7 +22,7 @@
       maxZoom: 19
     }).addTo(map);
 
-    // Marker colors based on warning type
+    // Warna marker berdasarkan tipe peringatan
     function getMarkerColor(type) {
       switch(type) {
         case 'Banjir': return 'blue';
@@ -35,16 +31,16 @@
       }
     }
 
-    // Format time to readable string
+    // Format waktu supaya lebih readable
     function formatTime(datetime) {
       const d = new Date(datetime);
       return d.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
     }
 
-    // Load markers from Worker
+    // Load marker dari Worker
     async function loadMarkers() {
       try {
-        const resp = await fetch('https://extreme-weather-dashboard.bmkgupdate.workers.dev'); // ganti URL Worker
+        const resp = await fetch('https://extreme-weather-dashboard.bmkgupdate.workers.dev'); // ganti dengan URL Worker-mu
         const data = await resp.json();
 
         data.forEach(city => {
@@ -60,15 +56,14 @@
               fillOpacity: 0.8
             }).addTo(map);
 
-            // Bind popup with structured info
-            const typeColor = color;
+            // Bind popup rapi
             const popupContent = `
-              <div class="popup-content">
-                <h4>${city.city}</h4>
-                <p><b>Region:</b> ${city.region}</p>
-                <p><b>Type:</b> <span style="color:${typeColor};">${city.latest_warning.type}</span></p>
-                <p><b>Time:</b> ${formatTime(city.latest_warning.start_time)} - ${formatTime(city.latest_warning.end_time)}</p>
-                <p><b>Description:</b> ${city.latest_warning.description}</p>
+              <div style="font-family: Arial, sans-serif; font-size: 14px;">
+                <strong>${city.city}</strong><br>
+                <b>Region:</b> ${city.region}<br>
+                <b>Type:</b> <span style="color:${color};">${city.latest_warning.type}</span><br>
+                <b>Time:</b> ${formatTime(city.latest_warning.start_time)} - ${formatTime(city.latest_warning.end_time)}<br>
+                <b>Description:</b> ${city.latest_warning.description}
               </div>
             `;
             marker.bindPopup(popupContent);
